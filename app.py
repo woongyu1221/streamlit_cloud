@@ -15,10 +15,7 @@ with st.sidebar:
     
     # Model Selection
     model_options = [
-        "google/gemini-2.0-flash-exp:free",
-        "openai/gpt-oss-120b:free",
-        "meta-llama/llama-3.2-3b-instruct:free",
-        "google/gemini-2.0-flash-thinking-exp:free" 
+        "openai/gpt-oss-120b:free"
     ]
     selected_model = st.selectbox(
         "Select Model", 
