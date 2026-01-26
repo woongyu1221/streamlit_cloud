@@ -100,7 +100,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                 model=selected_model,
                 messages=api_messages,
                 extra_body={
-                    "reasoning": {"enabled": True} if show_reasoning or "thinking" in selected_model else {"enabled": False}
+                    "reasoning": {"enabled": True}
                 }
             )
 
