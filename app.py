@@ -155,6 +155,9 @@ def game_page():
         # Turn / Game Status
         ready_to_play = (room.players[1] is not None) and (room.players[2] is not None)
         
+        if my_role == 0:
+            st.info("👀 You are a Spectator")
+        
         if not ready_to_play:
             st.warning("Waiting for opponent...")
         elif room.game.winner:
@@ -210,12 +213,14 @@ def game_page():
                 # 2. Not my turn?
                 # 3. Game finished?
                 # 4. Opponent missing?
+                # 5. Spectator?
                 is_occupied = (cell_value != 0)
                 is_game_over = (game.winner is not None)
                 is_my_turn = (game.current_turn == my_role)
+                is_player = (my_role in [1, 2])
                 
                 disabled = True
-                if my_role in [1, 2] and not is_occupied and not is_game_over and ready_to_play and is_my_turn:
+                if is_player and not is_occupied and not is_game_over and ready_to_play and is_my_turn:
                     disabled = False
                 
                 # We need unique keys for buttons
