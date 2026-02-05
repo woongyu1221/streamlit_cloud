@@ -13,6 +13,15 @@ class Room:
         self.spectators = []
     
     def join(self, player_name):
+        # Check if already in the room (Reconnect/Refresh)
+        if self.players[1] == player_name:
+            return True, "Reconnected as Black"
+        if self.players[2] == player_name:
+            return True, "Reconnected as White"
+        if player_name in self.spectators:
+            return True, "Reconnected as Spectator"
+
+        # New Joiner
         if self.players[2] is None:
             self.players[2] = player_name
             return True, "Joined as White"
