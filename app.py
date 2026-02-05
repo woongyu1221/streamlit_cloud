@@ -5,6 +5,7 @@ from game_server import GameServer
 st.set_page_config(page_title="Streamlit Omok", layout="centered") 
 
 # --- Custom CSS for Board ---
+# --- Custom CSS for Board ---
 st.markdown("""
 <style>
     /* Center the board */
@@ -12,22 +13,40 @@ st.markdown("""
         align-items: center;
     }
     
-    /* Make buttons square and compact */
-    .stButton button {
+    /* 
+       Target ONLY buttons inside the Game View 
+       We use a marker div #game_view_marker to activate this style 
+       Using :has() selector (supported in modern browsers)
+    */
+    div:has(#game_view_marker) .stButton button {
         width: 35px !important;
         height: 35px !important;
         padding: 0 !important;
         margin: 0 !important;
         line-height: 0 !important;
         min-height: 0px !important; 
-        border: 1px solid #ccc;
-        border-radius: 0 !important; /* Log shaped */
-        background-color: #eebb55; /* Board color */
-        color: transparent;
+        border: 1px solid #c6a35b;
+        border-radius: 0 !important; 
+        background-color: #eebb55; 
+        color: black !important; /* Make text visible (emojis) */
+        font-size: 18px;
     }
     
-    /* Modify columns handling to minimize gaps */
-    div[data-testid="column"] {
+    /* EXCLUDE Sidebar from the above style even if it's in the same view */
+    section[data-testid="stSidebar"] .stButton button {
+        width: auto !important;
+        height: auto !important;
+        padding: 0.25rem 0.75rem !important;
+        margin: 0 !important;
+        border: 1px solid rgba(49, 51, 63, 0.2);
+        border-radius: 0.25rem !important;
+        background-color: white; 
+        color: rgb(49, 51, 63) !important;
+        line-height: 1.6 !important;
+    }
+
+    /* Modify columns handling to minimize gaps - Only for Board */
+    div:has(#game_view_marker) div[data-testid="column"] {
         width: 35px !important;
         flex: 0 0 35px !important;
         min-width: 35px !important;
@@ -35,22 +54,16 @@ st.markdown("""
         gap: 0 !important;
     }
     
+    /* Reset Column style for Sidebar */
+    section[data-testid="stSidebar"] div[data-testid="column"] {
+        width: auto !important;
+        flex: 1 1 0% !important;
+        min-width: auto !important;
+    }
+
     /* Fix row spacing */
     div[data-testid="stHorizontalBlock"] {
         gap: 0 !important;
-    }
-    
-    /* Responsive tweaks */
-    @media (max-width: 600px) {
-        .stButton button {
-            width: 20px !important;
-            height: 20px !important;
-        }
-        div[data-testid="column"] {
-            width: 20px !important;
-            flex: 0 0 20px !important;
-            min-width: 20px !important;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -174,18 +187,18 @@ def game_page():
         st.divider()
         
         # Actions
+        st.write("### Controls")
         col_act1, col_act2 = st.columns(2)
         with col_act1:
-            if st.button("Refresh"):
+            if st.button("🔄 Refresh", help="Refresh the board to see moves"):
                 st.rerun()
         with col_act2:
-            if st.button("Undo"):
-                # Ideally, we should vote to undo, but for now simple undo
-                if my_role in [1, 2]: # Only players can undo
+            if st.button("↩️ Undo", help="Undo your last move", disabled=not (my_role in [1, 2])):
+                if my_role in [1, 2]: 
                      game.undo_move()
                      st.rerun()
         
-        if st.button("Leave Room", type="primary"):
+        if st.button("🚪 Leave Room", type="primary", help="Exit the game"):
             room.leave(st.session_state.nickname)
             if room.is_empty():
                  server.remove_room(room.id)
@@ -194,6 +207,8 @@ def game_page():
 
     # Board Rendering
     # Use a container to keep it tight
+    st.markdown('<div id="game_view_marker"></div>', unsafe_allow_html=True)
+    
     with st.container():
         for r in range(game.size):
             # Create columns with minimal gap
@@ -219,6 +234,8 @@ def game_page():
                 is_my_turn = (game.current_turn == my_role)
                 is_player = (my_role in [1, 2])
                 
+                # We can't actually disable the button if we want the click to register eventually or tooltip to show
+                # But standard disable grey out is fine.
                 disabled = True
                 if is_player and not is_occupied and not is_game_over and ready_to_play and is_my_turn:
                     disabled = False
@@ -226,8 +243,7 @@ def game_page():
                 # We need unique keys for buttons
                 key = f"b_{r}_{c}"
                 
-                # In order to color the stone, we can't easily change button text color in standard Streamlit
-                # So we use the emoji label which carries its own color.
+                # Button
                 if cols[c].button(label, key=key, disabled=disabled):
                     if not disabled:
                         game.place_stone(r, c)
