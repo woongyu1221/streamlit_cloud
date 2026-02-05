@@ -1,128 +1,175 @@
 import streamlit as st
-from openai import OpenAI
-import os
+import time
+from game_server import GameServer
 
-# Page configuration
-st.set_page_config(
-    page_title="AI Developer Assistant",
-    page_icon="🤖",
-    layout="wide"
-)
+st.set_page_config(page_title="Streamlit Omok", layout="wide")
 
-# Sidebar settings
-with st.sidebar:
-    st.title("Settings")
+# --- Custom CSS for Board ---
+st.markdown("""
+<style>
+    .stButton button {
+        width: 30px !important;
+        height: 30px !important;
+        padding: 0 !important;
+        min-height: 0px !important;
+        line-height: 0 !important;
+        border-radius: 50%;
+    }
+    div[data-testid="column"] {
+        width: 30px !important;
+        flex: 0 0 30px !important;
+        min-width: 30px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- Global Server State ---
+@st.cache_resource
+def get_server():
+    return GameServer()
+
+server = get_server()
+
+# --- Session State ---
+if 'nickname' not in st.session_state:
+    st.session_state.nickname = None
+if 'room_id' not in st.session_state:
+    st.session_state.room_id = None
+if 'auto_refresh' not in st.session_state:
+    st.session_state.auto_refresh = False
+
+# --- Pages ---
+
+def login_page():
+    st.title("⚫⚪ Streamlit Omok")
+    name = st.text_input("Enter your nickname", key="login_name")
+    if st.button("Start"):
+        if name:
+            st.session_state.nickname = name
+            st.rerun()
+        else:
+            st.error("Please enter a nickname.")
+
+def lobby_page():
+    st.title(f"Lobby - Welcome, {st.session_state.nickname}")
     
-    # Model Selection
-    model_options = [
-        "openai/gpt-oss-120b:free"
-    ]
-    selected_model = st.selectbox(
-        "Select Model", 
-        model_options, 
-        index=0,
-        help="Select the AI model to use from OpenRouter."
-    )
+    st.subheader("Create a Room")
+    with st.form("create_room_form"):
+        room_name = st.text_input("Room Name")
+        submitted = st.form_submit_button("Create")
+        if submitted and room_name:
+            room_id = server.create_room(room_name, st.session_state.nickname)
+            st.session_state.room_id = room_id
+            st.success(f"Created room: {room_name}")
+            st.rerun()
+
+    st.subheader("Available Rooms")
+    rooms = server.get_all_rooms()
+    if not rooms:
+        st.info("No rooms available. Create one!")
+    else:
+        for room in rooms:
+            col1, col2, col3 = st.columns([3, 3, 2])
+            with col1:
+                st.write(f"**{room.name}**")
+            with col2:
+                p1 = room.players[1] if room.players[1] else "Waiting..."
+                p2 = room.players[2] if room.players[2] else "Waiting..."
+                st.write(f"{p1} vs {p2}")
+            with col3:
+                if st.button("Join", key=f"join_{room.id}"):
+                    success, msg = room.join(st.session_state.nickname)
+                    if success:
+                        st.session_state.room_id = room.id
+                        st.rerun()
+                    else:
+                        st.error(msg)
     
-    show_reasoning = st.toggle("Display Reasoning Logic", value=False)
-    st.markdown("---")
-    st.caption(f"Current Model: `{selected_model}`")
+    if st.button("Refresh Lobby"):
+        st.rerun()
 
-# Initialize client using st.secrets for Cloud deployment
-# Fallback to os.getenv for local development if not in secrets
-api_key = st.secrets.get("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY"))
+def game_page():
+    room = server.get_room(st.session_state.room_id)
+    if not room:
+        st.error("Room not found or expired.")
+        time.sleep(2)
+        st.session_state.room_id = None
+        st.rerun()
+        return
 
-if not api_key:
-    st.error("🚨 API Key not found! Please set `OPENROUTER_API_KEY` in Streamlit Secrets.")
-    st.stop()
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=api_key,
-)
-
-# Persona definition
-SYSTEM_PROMPT = """You are an AI Developer Assistant. 
-Your goal is to help users with coding tasks, debugging, and software architecture.
-You must answer all questions in Korean.
-Be concise, technical, and helpful.
-Use Markdown for code blocks.
-"""
-
-# Initialize session state
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": SYSTEM_PROMPT}
-    ]
-
-# Display chat history (excluding system prompt)
-st.title("🤖 AI Developer Assistant")
-st.caption("Powered by OpenRouter & Streamlit Cloud")
-
-for message in st.session_state.messages:
-    if message["role"] != "system":
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            # Display reasoning if stored in history and toggle is on
-            if show_reasoning and "reasoning_details" in message and message["reasoning_details"]:
-                with st.expander("Reasoning Process (Saved)", expanded=False):
-                    try:
-                        st.write(message["reasoning_details"])
-                    except:
-                        st.info("Raw reasoning data unavailable.")
-
-# Chat input
-if prompt := st.chat_input("질문을 입력하세요..."):
-    # Add user message to history
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    # Generate response
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
+    # Sidebar Info
+    with st.sidebar:
+        st.title(f"Room: {room.name}")
+        st.write("---")
+        st.write("⚫ Player 1 (Black):")
+        st.info(room.players[1] if room.players[1] else "Waiting...")
         
-        try:
-            # Prepare messages (filtering for compatibility)
-            api_messages = []
-            for msg in st.session_state.messages:
-                m = {"role": msg["role"], "content": msg["content"]}
-                # Pass reasoning details back if the model supports it/needs it to maintain context
-                # Note: Standard OpenAI API might reject unknown keys, but OpenRouter often proxies them.
-                # If issues arise, we might need to strictly filter 'role' and 'content' only.
-                # For now, we'll keep it simple as per user snippet logic.
-                if "reasoning_details" in msg:
-                     m["reasoning_details"] = msg["reasoning_details"]
-                api_messages.append(m)
-
-            response = client.chat.completions.create(
-                model=selected_model,
-                messages=api_messages,
-                extra_body={
-                    "reasoning": {"enabled": True}
-                }
-            )
-
-            # Process response
-            result_message = response.choices[0].message
-            full_response = result_message.content
+        st.write("⚪ Player 2 (White):")
+        st.info(room.players[2] if room.players[2] else "Waiting...")
+        
+        st.write("---")
+        
+        # Turn Indicator
+        if room.game.winner:
+            winner_name = room.players[room.game.winner]
+            st.success(f"🏆 Winner: {winner_name}!")
+        else:
+            current_turn = "⚫ Black's Turn" if room.game.current_turn == 1 else "⚪ White's Turn"
+            st.warning(current_turn)
             
-            # Check for reasoning details (OpenRouter/specific models)
-            reasoning_details = getattr(result_message, "reasoning_details", None)
-
-            message_placeholder.markdown(full_response)
+        if st.button("Refresh Board"):
+            st.rerun()
             
-            if show_reasoning and reasoning_details:
-                with st.expander("Reasoning Process", expanded=True):
-                    st.write(reasoning_details)
+        if st.button("Leave Room"):
+            room.leave(st.session_state.nickname)
+            st.session_state.room_id = None
+            st.rerun()
 
-            # Add assistant message to history
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": full_response,
-                "reasoning_details": reasoning_details
-            })
-
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
+    # Board Rendering
+    # Using columns for grid is heavy but standard API compatible
+    game = room.game
+    
+    # Determine if it's my turn
+    my_role = None
+    if st.session_state.nickname == room.players[1]:
+        my_role = 1
+    elif st.session_state.nickname == room.players[2]:
+        my_role = 2
+        
+    is_my_turn = (my_role == game.current_turn) and (not game.winner)
+    
+    board_container = st.container()
+    
+    with board_container:
+        for r in range(game.size):
+            cols = st.columns(game.size, gap="small")
+            for c in range(game.size):
+                cell_value = game.board[r, c]
+                label = " "
+                if cell_value == 1:
+                    label = "⚫"
+                elif cell_value == 2:
+                    label = "⚪"
+                
+                # Check if click should be disabled
+                # Disabled if: already occupied OR not my turn OR game over
+                occupied = (cell_value != 0)
+                disabled = occupied or (not is_my_turn) or (game.winner is not None)
+                
+                # If button is clicked
+                key = f"cell_{r}_{c}"
+                if cols[c].button(label, key=key, disabled=disabled):
+                    if is_my_turn:
+                        success, msg = game.place_stone(r, c)
+                        if success:
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                            
+# --- Main Logic ---
+if not st.session_state.nickname:
+    login_page()
+elif not st.session_state.room_id:
+    lobby_page()
+else:
+    game_page()
