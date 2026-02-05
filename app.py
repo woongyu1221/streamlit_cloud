@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 from game_server import GameServer
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Streamlit Omok", layout="centered") 
 
@@ -114,6 +115,9 @@ def lobby_page():
     
     if st.button("Refresh Lobby"):
         st.rerun()
+        
+    # Auto-refresh lobby every 5 seconds
+    st_autorefresh(interval=5000, limit=None, key="lobby_refresh")
 
 def game_page():
     room = server.get_room(st.session_state.room_id)
@@ -156,6 +160,9 @@ def game_page():
         
         if not ready_to_play:
             st.warning("Waiting for opponent...")
+            # Refresh every 2s while waiting for opponent
+            st_autorefresh(interval=2000, key="wait_player_refresh")
+            
         elif room.game.winner:
             winner_name = room.players[room.game.winner]
             st.success(f"🏆 Winner: {winner_name}!")
@@ -166,6 +173,12 @@ def game_page():
                 st.info(f"{color_icon} YOUR TURN")
             else:
                 st.markdown(f"{color_icon} {turn_name}'s turn")
+                # Refresh every 1s if it's NOT my turn (waiting for opponent move)
+                st_autorefresh(interval=1000, key="wait_move_refresh")
+        
+        # Also refresh if there is a pending request for ME to handle
+        if room.pending_request and room.pending_request['requester'] != st.session_state.nickname:
+             st_autorefresh(interval=2000, key="request_refresh")
 
         st.divider()
         
