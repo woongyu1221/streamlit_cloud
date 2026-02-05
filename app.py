@@ -2,23 +2,55 @@ import streamlit as st
 import time
 from game_server import GameServer
 
-st.set_page_config(page_title="Streamlit Omok", layout="wide")
+st.set_page_config(page_title="Streamlit Omok", layout="centered") 
 
 # --- Custom CSS for Board ---
 st.markdown("""
 <style>
-    .stButton button {
-        width: 30px !important;
-        height: 30px !important;
-        padding: 0 !important;
-        min-height: 0px !important;
-        line-height: 0 !important;
-        border-radius: 50%;
+    /* Center the board */
+    .stApp {
+        align-items: center;
     }
+    
+    /* Make buttons square and compact */
+    .stButton button {
+        width: 35px !important;
+        height: 35px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        line-height: 0 !important;
+        min-height: 0px !important; 
+        border: 1px solid #ccc;
+        border-radius: 0 !important; /* Log shaped */
+        background-color: #eebb55; /* Board color */
+        color: transparent;
+    }
+    
+    /* Modify columns handling to minimize gaps */
     div[data-testid="column"] {
-        width: 30px !important;
-        flex: 0 0 30px !important;
-        min-width: 30px !important;
+        width: 35px !important;
+        flex: 0 0 35px !important;
+        min-width: 35px !important;
+        padding: 0 !important;
+        gap: 0 !important;
+    }
+    
+    /* Fix row spacing */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0 !important;
+    }
+    
+    /* Responsive tweaks */
+    @media (max-width: 600px) {
+        .stButton button {
+            width: 20px !important;
+            height: 20px !important;
+        }
+        div[data-testid="column"] {
+            width: 20px !important;
+            flex: 0 0 20px !important;
+            min-width: 20px !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -35,8 +67,6 @@ if 'nickname' not in st.session_state:
     st.session_state.nickname = None
 if 'room_id' not in st.session_state:
     st.session_state.room_id = None
-if 'auto_refresh' not in st.session_state:
-    st.session_state.auto_refresh = False
 
 # --- Pages ---
 
@@ -51,17 +81,18 @@ def login_page():
             st.error("Please enter a nickname.")
 
 def lobby_page():
-    st.title(f"Lobby - Welcome, {st.session_state.nickname}")
+    st.title(f"Lobby")
+    st.caption(f"Logged in as: {st.session_state.nickname}")
     
-    st.subheader("Create a Room")
-    with st.form("create_room_form"):
-        room_name = st.text_input("Room Name")
-        submitted = st.form_submit_button("Create")
-        if submitted and room_name:
-            room_id = server.create_room(room_name, st.session_state.nickname)
-            st.session_state.room_id = room_id
-            st.success(f"Created room: {room_name}")
-            st.rerun()
+    with st.expander("Create a Room", expanded=True):
+        with st.form("create_room_form"):
+            room_name = st.text_input("Room Name")
+            submitted = st.form_submit_button("Create")
+            if submitted and room_name:
+                room_id = server.create_room(room_name, st.session_state.nickname)
+                st.session_state.room_id = room_id
+                st.success(f"Created room: {room_name}")
+                st.rerun()
 
     st.subheader("Available Rooms")
     rooms = server.get_all_rooms()
@@ -69,14 +100,14 @@ def lobby_page():
         st.info("No rooms available. Create one!")
     else:
         for room in rooms:
-            col1, col2, col3 = st.columns([3, 3, 2])
-            with col1:
+            cols = st.columns([4, 4, 2])
+            with cols[0]:
                 st.write(f"**{room.name}**")
-            with col2:
-                p1 = room.players[1] if room.players[1] else "Waiting..."
-                p2 = room.players[2] if room.players[2] else "Waiting..."
-                st.write(f"{p1} vs {p2}")
-            with col3:
+            with cols[1]:
+                p1 = room.players[1] if room.players[1] else "-"
+                p2 = room.players[2] if room.players[2] else "-"
+                st.caption(f"{p1} vs {p2}")
+            with cols[2]:
                 if st.button("Join", key=f"join_{room.id}"):
                     success, msg = room.join(st.session_state.nickname)
                     if success:
@@ -97,75 +128,106 @@ def game_page():
         st.rerun()
         return
 
-    # Sidebar Info
+    game = room.game
+    
+    # Identify Player
+    my_role = None
+    if st.session_state.nickname == room.players[1]:
+        my_role = 1 # Black
+    elif st.session_state.nickname == room.players[2]:
+        my_role = 2 # White
+    else:
+        my_role = 0 # Spectator
+
+    # Sidebar: Game Info & Controls
     with st.sidebar:
-        st.title(f"Room: {room.name}")
-        st.write("---")
-        st.write("⚫ Player 1 (Black):")
-        st.info(room.players[1] if room.players[1] else "Waiting...")
+        st.header(f"Room: {room.name}")
         
-        st.write("⚪ Player 2 (White):")
-        st.info(room.players[2] if room.players[2] else "Waiting...")
+        # Player Status
+        p1_name = room.players[1] if room.players[1] else "Waiting..."
+        p2_name = room.players[2] if room.players[2] else "Waiting..."
         
-        st.write("---")
+        st.markdown(f"**Unknown Player (Black)**: {p1_name}")
+        st.markdown(f"**White Player (White)**: {p2_name}")
         
-        # Turn Indicator
-        if room.game.winner:
+        st.divider()
+        
+        # Turn / Game Status
+        ready_to_play = (room.players[1] is not None) and (room.players[2] is not None)
+        
+        if not ready_to_play:
+            st.warning("Waiting for opponent...")
+        elif room.game.winner:
             winner_name = room.players[room.game.winner]
             st.success(f"🏆 Winner: {winner_name}!")
         else:
-            current_turn = "⚫ Black's Turn" if room.game.current_turn == 1 else "⚪ White's Turn"
-            st.warning(current_turn)
-            
-        if st.button("Refresh Board"):
-            st.rerun()
-            
-        if st.button("Leave Room"):
+            turn_name = room.players[room.game.current_turn]
+            color_icon = "⚫" if room.game.current_turn == 1 else "⚪"
+            if room.game.current_turn == my_role:
+                st.info(f"{color_icon} YOUR TURN")
+            else:
+                st.markdown(f"{color_icon} {turn_name}'s turn")
+
+        st.divider()
+        
+        # Actions
+        col_act1, col_act2 = st.columns(2)
+        with col_act1:
+            if st.button("Refresh"):
+                st.rerun()
+        with col_act2:
+            if st.button("Undo"):
+                # Ideally, we should vote to undo, but for now simple undo
+                if my_role in [1, 2]: # Only players can undo
+                     game.undo_move()
+                     st.rerun()
+        
+        if st.button("Leave Room", type="primary"):
             room.leave(st.session_state.nickname)
+            if room.is_empty():
+                 server.remove_room(room.id)
             st.session_state.room_id = None
             st.rerun()
 
     # Board Rendering
-    # Using columns for grid is heavy but standard API compatible
-    game = room.game
-    
-    # Determine if it's my turn
-    my_role = None
-    if st.session_state.nickname == room.players[1]:
-        my_role = 1
-    elif st.session_state.nickname == room.players[2]:
-        my_role = 2
-        
-    is_my_turn = (my_role == game.current_turn) and (not game.winner)
-    
-    board_container = st.container()
-    
-    with board_container:
+    # Use a container to keep it tight
+    with st.container():
         for r in range(game.size):
-            cols = st.columns(game.size, gap="small")
+            # Create columns with minimal gap
+            cols = st.columns(game.size) 
             for c in range(game.size):
                 cell_value = game.board[r, c]
+                
+                # Visual logic
                 label = " "
                 if cell_value == 1:
-                    label = "⚫"
+                    label = "⚫" # Black stone
                 elif cell_value == 2:
-                    label = "⚪"
+                    label = "⚪" # White stone
                 
-                # Check if click should be disabled
-                # Disabled if: already occupied OR not my turn OR game over
-                occupied = (cell_value != 0)
-                disabled = occupied or (not is_my_turn) or (game.winner is not None)
+                # Logic for disabled state
+                # 1. Spot occupied?
+                # 2. Not my turn?
+                # 3. Game finished?
+                # 4. Opponent missing?
+                is_occupied = (cell_value != 0)
+                is_game_over = (game.winner is not None)
+                is_my_turn = (game.current_turn == my_role)
                 
-                # If button is clicked
-                key = f"cell_{r}_{c}"
+                disabled = True
+                if my_role in [1, 2] and not is_occupied and not is_game_over and ready_to_play and is_my_turn:
+                    disabled = False
+                
+                # We need unique keys for buttons
+                key = f"b_{r}_{c}"
+                
+                # In order to color the stone, we can't easily change button text color in standard Streamlit
+                # So we use the emoji label which carries its own color.
                 if cols[c].button(label, key=key, disabled=disabled):
-                    if is_my_turn:
-                        success, msg = game.place_stone(r, c)
-                        if success:
-                            st.rerun()
-                        else:
-                            st.error(msg)
-                            
+                    if not disabled:
+                        game.place_stone(r, c)
+                        st.rerun()
+
 # --- Main Logic ---
 if not st.session_state.nickname:
     login_page()

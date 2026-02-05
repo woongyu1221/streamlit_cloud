@@ -23,12 +23,13 @@ class Room:
     def leave(self, player_name):
         if self.players[1] == player_name:
             self.players[1] = None
-            # If owner leaves, maybe close room or assign new owner? 
-            # For simplicity, we just clear the slot.
         elif self.players[2] == player_name:
             self.players[2] = None
         elif player_name in self.spectators:
             self.spectators.remove(player_name)
+            
+    def is_empty(self):
+        return self.players[1] is None and self.players[2] is None and not self.spectators
             
     def reset_game(self):
         self.game.reset()
@@ -45,5 +46,9 @@ class GameServer:
     def get_room(self, room_id):
         return self.rooms.get(room_id)
         
+    def remove_room(self, room_id):
+        if room_id in self.rooms:
+            del self.rooms[room_id]
+
     def get_all_rooms(self):
         return list(self.rooms.values())

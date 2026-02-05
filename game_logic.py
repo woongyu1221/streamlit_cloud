@@ -58,6 +58,16 @@ class OmokGame:
                 
         return False
         
+    def undo_move(self):
+        if not self.history:
+            return False, "No moves to undo"
+            
+        last_row, last_col, player = self.history.pop()
+        self.board[last_row, last_col] = 0
+        self.current_turn = player # Revert turn to the player who made the move
+        self.winner = None # Reset winner state if we undo a winning move
+        return True, "Last move undone"
+
     def reset(self):
         self.board = np.zeros((self.size, self.size), dtype=int)
         self.history = []
