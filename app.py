@@ -14,11 +14,14 @@ st.markdown("""
     }
     
     /* 
-       Target ONLY buttons inside the Game View 
-       We use a marker div #game_view_marker to activate this style 
-       Using :has() selector (supported in modern browsers)
+       Target ONLY buttons inside the MAIN area of the Game View.
+       We use a marker div #game_view_marker to activate this style.
+       This ensures:
+       1. It only affects the Game Page (because of the marker).
+       2. It only affects the Main Board (because of strict stMain scoping).
+       3. Sidebar buttons are UNTOUCHED.
     */
-    div:has(#game_view_marker) .stButton button {
+    section[data-testid="stMain"]:has(#game_view_marker) .stButton button {
         width: 35px !important;
         height: 35px !important;
         padding: 0 !important;
@@ -31,34 +34,14 @@ st.markdown("""
         color: black !important; /* Make text visible (emojis) */
         font-size: 18px;
     }
-    
-    /* EXCLUDE Sidebar from the above style even if it's in the same view */
-    section[data-testid="stSidebar"] .stButton button {
-        width: auto !important;
-        height: auto !important;
-        padding: 0.25rem 0.75rem !important;
-        margin: 0 !important;
-        border: 1px solid rgba(49, 51, 63, 0.2);
-        border-radius: 0.25rem !important;
-        background-color: white; 
-        color: rgb(49, 51, 63) !important;
-        line-height: 1.6 !important;
-    }
 
-    /* Modify columns handling to minimize gaps - Only for Board */
-    div:has(#game_view_marker) div[data-testid="column"] {
+    /* Modify columns handling to minimize gaps - Only for Board in Main */
+    section[data-testid="stMain"]:has(#game_view_marker) div[data-testid="column"] {
         width: 35px !important;
         flex: 0 0 35px !important;
         min-width: 35px !important;
         padding: 0 !important;
         gap: 0 !important;
-    }
-    
-    /* Reset Column style for Sidebar */
-    section[data-testid="stSidebar"] div[data-testid="column"] {
-        width: auto !important;
-        flex: 1 1 0% !important;
-        min-width: auto !important;
     }
 
     /* Fix row spacing */
