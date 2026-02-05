@@ -169,24 +169,63 @@ def game_page():
 
         st.divider()
         
-        # Actions
-        st.write("### Controls")
-        col_act1, col_act2 = st.columns(2)
-        with col_act1:
-            if st.button("🔄 Refresh", help="Refresh the board to see moves"):
-                st.rerun()
-        with col_act2:
-            if st.button("↩️ Undo", help="Undo your last move", disabled=not (my_role in [1, 2])):
-                if my_role in [1, 2]: 
-                     game.undo_move()
-                     st.rerun()
+        st.divider()
         
-        if st.button("🚪 Leave Room", type="primary", help="Exit the game"):
-            room.leave(st.session_state.nickname)
-            if room.is_empty():
-                 server.remove_room(room.id)
-            st.session_state.room_id = None
-            st.rerun()
+        # --- Value-Added Features: Requests ---
+        # 1. Check if there is a pending request targeting ME?
+        #    Target is the 'other' player.
+        pending = room.pending_request
+        
+        # Logic to determine if I am the resolver (the one receiving the request)
+        i_am_resolver = False
+        if pending and pending['requester'] != st.session_state.nickname:
+             if my_role in [1, 2]: # Spectators don't resolve
+                 i_am_resolver = True
+        
+        if i_am_resolver:
+            req_type = pending['type']
+            requester = pending['requester']
+            st.warning(f"📩 {requester} wants to **{req_type}**.")
+            col_res1, col_res2 = st.columns(2)
+            with col_res1:
+                if st.button("✅ Accept", key="accept_req"):
+                    room.resolve_request(True)
+                    st.rerun()
+            with col_res2:
+                if st.button("❌ Deny", key="deny_req"):
+                    room.resolve_request(False)
+                    st.rerun()
+        
+        elif pending and pending['requester'] == st.session_state.nickname:
+            st.info(f"⏳ Waiting for opponent to accept {pending['type']}...")
+            if st.button("Cancel Request"):
+                room.cancel_request()
+                st.rerun()
+                
+        else:
+            # Normal Controls
+            st.write("### Controls")
+            col_act1, col_act2 = st.columns(2)
+            with col_act1:
+                if st.button("🔄 Refresh", help="Refresh the board"):
+                    st.rerun()
+            with col_act2:
+                # UNDO Request
+                if st.button("↩️ Undo", help="Request undo", disabled=not (my_role in [1, 2])):
+                    room.make_request(st.session_state.nickname, 'UNDO')
+                    st.rerun()
+            
+            # SWAP Request
+            if st.button("⇄ Swap / Reset", help="Request to swap seats and restart", disabled=not (my_role in [1, 2])):
+                room.make_request(st.session_state.nickname, 'SWAP')
+                st.rerun()
+            
+            if st.button("🚪 Leave Room", type="primary", help="Exit the game"):
+                room.leave(st.session_state.nickname)
+                if room.is_empty():
+                     server.remove_room(room.id)
+                st.session_state.room_id = None
+                st.rerun()
 
     # Board Rendering
     # Use a container to keep it tight

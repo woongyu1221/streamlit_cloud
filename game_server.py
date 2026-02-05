@@ -11,6 +11,8 @@ class Room:
             2: None          # White
         }
         self.spectators = []
+        # request format: {'type': 'UNDO'|'SWAP', 'requester': nickname}
+        self.pending_request = None
     
     def join(self, player_name):
         # Check if already in the room (Reconnect/Refresh)
@@ -42,6 +44,45 @@ class Room:
             
     def reset_game(self):
         self.game.reset()
+        self.pending_request = None
+
+    def make_request(self, requester, req_type):
+        # req_type: 'UNDO' or 'SWAP'
+        if self.pending_request:
+            return False, "Another request is pending"
+        self.pending_request = {'type': req_type, 'requester': requester}
+        return True, "Request sent"
+
+    def cancel_request(self):
+        self.pending_request = None
+
+    def resolve_request(self, approved):
+        if not self.pending_request:
+            return False, "No pending request"
+        
+        req = self.pending_request
+        self.pending_request = None
+        
+        if not approved:
+            return True, "Request rejected"
+            
+        # Execute Action
+        if req['type'] == 'UNDO':
+            self.game.undo_move()
+            return True, "Undo executed"
+        elif req['type'] == 'SWAP':
+            self.swap_players()
+            return True, "Players swapped"
+            
+        return False, "Unknown request type"
+
+    def swap_players(self):
+        p1 = self.players[1]
+        p2 = self.players[2]
+        self.players[1] = p2
+        self.players[2] = p1
+        self.game.reset() # Reset game on swap usually makes sense
+
 
 class GameServer:
     def __init__(self):
