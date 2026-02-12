@@ -33,7 +33,11 @@ st.markdown("""
         border-radius: 0 !important; 
         background-color: #eebb55; 
         color: black !important; /* Make text visible (emojis) */
-        font-size: 18px;
+        font-size: 24px; /* Larger stones */
+        display: flex;
+        align-items: center;
+        justify_content: center;
+        padding-bottom: 3px !important; /* Optical center alignment */
     }
 
     /* Modify columns handling to minimize gaps - Only for Board in Main */
@@ -164,8 +168,10 @@ def game_page():
             st_autorefresh(interval=2000, key="wait_player_refresh")
             
         elif room.game.winner:
-            winner_name = room.players[room.game.winner]
-            st.success(f"🏆 Winner: {winner_name}!")
+            winner_name = room.players[room.game.winner] if room.players[room.game.winner] else "Opponent (Left)"
+            st.success(f"🏆 Game Over! Winner: {winner_name}")
+            if room.players[room.game.winner] is None:
+                st.error("The opponent disconnected.")
         else:
             turn_name = room.players[room.game.current_turn]
             color_icon = "⚫" if room.game.current_turn == 1 else "⚪"
@@ -244,6 +250,14 @@ def game_page():
     # Use a container to keep it tight
     st.markdown('<div id="game_view_marker"></div>', unsafe_allow_html=True)
     
+    # --- Main Area Alerts for Requests ---
+    if room.pending_request:
+        pr = room.pending_request
+        if pr['requester'] != st.session_state.nickname and my_role in [1, 2]:
+             st.error(f"⚠️ **{pr['requester']}** requests: **{pr['type']}**. Please responding in Sidebar!")
+        elif pr['requester'] == st.session_state.nickname:
+             st.warning(f"⏳ Waiting for opponent to accept **{pr['type']}**...")
+
     with st.container():
         for r in range(game.size):
             # Create columns with minimal gap
@@ -269,10 +283,12 @@ def game_page():
                 is_my_turn = (game.current_turn == my_role)
                 is_player = (my_role in [1, 2])
                 
-                # We can't actually disable the button if we want the click to register eventually or tooltip to show
                 # But standard disable grey out is fine.
                 disabled = True
-                if is_player and not is_occupied and not is_game_over and ready_to_play and is_my_turn:
+                # Disable if there is ANY pending request (pause game)
+                game_paused = (room.pending_request is not None)
+                
+                if is_player and not is_occupied and not is_game_over and ready_to_play and is_my_turn and not game_paused:
                     disabled = False
                 
                 # We need unique keys for buttons

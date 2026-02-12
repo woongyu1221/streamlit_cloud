@@ -18,6 +18,11 @@ class OmokGame:
         if self.board[row, col] != 0:
             return False, "Position already taken"
             
+        # Check 3-3 Forbidden Move for Black (Player 1)
+        if self.current_turn == 1:
+            if self.check_forbidden_33(row, col):
+                return False, "🚫 Forbidden Move (3-3)"
+            
         self.board[row, col] = self.current_turn
         self.history.append((row, col, self.current_turn))
         
@@ -67,6 +72,57 @@ class OmokGame:
         self.current_turn = player # Revert turn to the player who made the move
         self.winner = None # Reset winner state if we undo a winning move
         return True, "Last move undone"
+
+    def check_forbidden_33(self, row, col):
+        # Simulate placing the stone
+        self.board[row, col] = 1
+        open_three_count = 0
+        
+        directions = [
+            (0, 1),   # Horizontal
+            (1, 0),   # Vertical
+            (1, 1),   # Diagonal \
+            (1, -1)   # Diagonal /
+        ]
+        
+        for dr, dc in directions:
+            if self.is_open_three(row, col, dr, dc):
+                open_three_count += 1
+                
+        # Undo simulation
+        self.board[row, col] = 0
+        
+        return open_three_count >= 2
+
+    def is_open_three(self, r, c, dr, dc):
+        # Check for pattern 0 1 1 1 0 involving the new stone at (r,c)
+        # We need to find the continuous line of stones including (r,c)
+        
+        count = 1
+        # Forward
+        fr, fc = r + dr, c + dc
+        while 0 <= fr < self.size and 0 <= fc < self.size and self.board[fr, fc] == 1:
+            count += 1
+            fr += dr
+            fc += dc
+            
+        # Backward
+        br, bc = r - dr, c - dc
+        while 0 <= br < self.size and 0 <= bc < self.size and self.board[br, bc] == 1:
+            count += 1
+            br -= dr
+            bc -= dc
+            
+        # Strictly open 3 means count == 3 AND both ends are empty (0)
+        # Ends are at (fr, fc) and (br, bc)
+        if count == 3:
+            # Check bounds for ends
+            valid_f = (0 <= fr < self.size and 0 <= fc < self.size and self.board[fr, fc] == 0)
+            valid_b = (0 <= br < self.size and 0 <= bc < self.size and self.board[br, bc] == 0)
+            if valid_f and valid_b:
+                return True
+                
+        return False
 
     def reset(self):
         self.board = np.zeros((self.size, self.size), dtype=int)

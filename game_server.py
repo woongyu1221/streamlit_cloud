@@ -32,10 +32,19 @@ class Room:
             return True, "Joined as Spectator"
             
     def leave(self, player_name):
+        winner = None
         if self.players[1] == player_name:
             self.players[1] = None
+            if self.game.history and not self.game.winner:
+                # Player 1 left mid-game -> Player 2 wins
+                if self.players[2]:
+                    self.game.winner = 2
         elif self.players[2] == player_name:
             self.players[2] = None
+            if self.game.history and not self.game.winner:
+                # Player 2 left mid-game -> Player 1 wins
+                if self.players[1]:
+                    self.game.winner = 1
         elif player_name in self.spectators:
             self.spectators.remove(player_name)
             
@@ -50,6 +59,15 @@ class Room:
         # req_type: 'UNDO' or 'SWAP'
         if self.pending_request:
             return False, "Another request is pending"
+            
+        # Special Case: Single Player Swap
+        if req_type == 'SWAP':
+            # Check if opponent is missing
+            opponent_missing = (self.players[1] is None) or (self.players[2] is None)
+            if opponent_missing:
+                self.swap_players()
+                return True, "Swapped immediately (Single Player)"
+
         self.pending_request = {'type': req_type, 'requester': requester}
         return True, "Request sent"
 
