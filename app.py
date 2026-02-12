@@ -7,6 +7,7 @@ st.set_page_config(page_title="Streamlit Omok", layout="centered")
 
 # --- Custom CSS for Board ---
 # --- Custom CSS for Board ---
+# --- Custom CSS for Board ---
 st.markdown("""
 <style>
     /* Center the board */
@@ -14,37 +15,61 @@ st.markdown("""
         align-items: center;
     }
     
+    /* Variable for Wood Color */
+    :root {
+        --board-color: #eebb55;
+        --grid-line-color: #000000;
+    }
+
     /* 
        Target ONLY buttons inside the MAIN area of the Game View.
        We use a marker div #game_view_marker to activate this style.
-       This ensures:
-       1. It only affects the Game Page (because of the marker).
-       2. It only affects the Main Board (because of strict stMain scoping).
-       3. Sidebar buttons are UNTOUCHED.
     */
     section[data-testid="stMain"]:has(#game_view_marker) .stButton button {
-        width: 35px !important;
-        height: 35px !important;
+        width: 40px !important;
+        height: 40px !important;
         padding: 0 !important;
         margin: 0 !important;
-        line-height: 0 !important;
+        line-height: normal !important;
         min-height: 0px !important; 
-        border: 1px solid #c6a35b;
+        border: none !important;
         border-radius: 0 !important; 
-        background-color: #eebb55; 
-        color: black !important; /* Make text visible (emojis) */
-        font-size: 24px; /* Larger stones */
+        
+        /* Realistic Board Look */
+        background-color: var(--board-color) !important;
+        
+        /* The Grid Lines (Cross) */
+        background-image: 
+            linear-gradient(to right, transparent 48%, var(--grid-line-color) 48%, var(--grid-line-color) 52%, transparent 52%),
+            linear-gradient(to bottom, transparent 48%, var(--grid-line-color) 48%, var(--grid-line-color) 52%, transparent 52%) !important;
+        background-size: 100% 100% !important;
+        background-repeat: no-repeat !important;
+        background-position: center !important;
+
+        /* Stone Styling (Emoji) */
+        color: black !important; /* Default text color */
+        font-size: 32px !important; /* Large stones */
         display: flex;
         align-items: center;
         justify_content: center;
-        padding-bottom: 3px !important; /* Optical center alignment */
+        
+        /* Remove default button shadows/effects for cleaner look */
+        box-shadow: none !important;
     }
 
-    /* Modify columns handling to minimize gaps - Only for Board in Main */
+    /* Hover effect for empty spots to show where you are aiming */
+    section[data-testid="stMain"]:has(#game_view_marker) .stButton button:not(:disabled):hover {
+        background-color: #dcb35c !important; /* Slightly darker wood */
+        cursor: pointer;
+        /* Add a ghost stone effect? Optional */
+        opacity: 0.8;
+    }
+
+    /* Column Gap Removal */
     section[data-testid="stMain"]:has(#game_view_marker) div[data-testid="column"] {
-        width: 35px !important;
-        flex: 0 0 35px !important;
-        min-width: 35px !important;
+        width: 40px !important;
+        flex: 0 0 40px !important;
+        min-width: 40px !important;
         padding: 0 !important;
         gap: 0 !important;
     }
@@ -52,6 +77,13 @@ st.markdown("""
     /* Fix row spacing */
     div[data-testid="stHorizontalBlock"] {
         gap: 0 !important;
+    }
+    
+    /* Hide the "disabled" opacity reduction to make stones look solid */
+    section[data-testid="stMain"]:has(#game_view_marker) .stButton button:disabled {
+        opacity: 1 !important;
+        background-color: var(--board-color) !important;
+        color: black !important;
     }
 </style>
 """, unsafe_allow_html=True)
