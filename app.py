@@ -8,26 +8,42 @@ st.set_page_config(page_title="Streamlit Omok", layout="centered")
 # --- Custom CSS for Board ---
 # --- Custom CSS for Board ---
 # --- Custom CSS for Board ---
+# --- Custom CSS for Board ---
 st.markdown("""
 <style>
     /* Center the board */
     .stApp {
         align-items: center;
+        background-color: #f0f2f6; /* Soft light gray app background */
     }
     
-    /* Variable for Wood Color */
+    /* Variable for Wood Color (Kaya) */
     :root {
-        --board-color: #eebb55;
-        --grid-line-color: #000000;
+        --board-color: #e3c086; 
+        --board-border: #8b5a2b;
+        --grid-line-color: #443322;
     }
 
     /* 
-       Target ONLY buttons inside the MAIN area of the Game View.
-       We use a marker div #game_view_marker to activate this style.
+       Board Container: Add a wood texture/border feeling around the buttons.
+       We target the container holding the grid.
+    */
+    div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"]:has(#game_view_marker) {
+        background-color: var(--board-color);
+        padding: 15px;
+        border-radius: 4px;
+        box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
+        border: 2px solid var(--board-border);
+        width: fit-content !important;
+        margin: auto;
+    }
+
+    /* 
+       Target Buttons in Game View
     */
     section[data-testid="stMain"]:has(#game_view_marker) .stButton button {
-        width: 40px !important;
-        height: 40px !important;
+        width: 38px !important;
+        height: 38px !important;
         padding: 0 !important;
         margin: 0 !important;
         line-height: normal !important;
@@ -35,51 +51,50 @@ st.markdown("""
         border: none !important;
         border-radius: 0 !important; 
         
-        /* Realistic Board Look */
+        /* Transparent button so consistent board background shows? 
+           Actually better to paint each cell to handle lines easily */
         background-color: var(--board-color) !important;
         
-        /* The Grid Lines (Cross) */
+        /* The Grid Lines (Cross) - Thinner and sharper */
         background-image: 
-            linear-gradient(to right, transparent 48%, var(--grid-line-color) 48%, var(--grid-line-color) 52%, transparent 52%),
-            linear-gradient(to bottom, transparent 48%, var(--grid-line-color) 48%, var(--grid-line-color) 52%, transparent 52%) !important;
+            linear-gradient(to right, transparent 49%, var(--grid-line-color) 49%, var(--grid-line-color) 51%, transparent 51%),
+            linear-gradient(to bottom, transparent 49%, var(--grid-line-color) 49%, var(--grid-line-color) 51%, transparent 51%) !important;
         background-size: 100% 100% !important;
-        background-repeat: no-repeat !important;
         background-position: center !important;
 
-        /* Stone Styling (Emoji) */
-        color: black !important; /* Default text color */
-        font-size: 32px !important; /* Large stones */
+        /* Stone Styling */
+        color: black !important; 
+        font-size: 28px !important; /* Balanced size */
         display: flex;
         align-items: center;
         justify_content: center;
         
-        /* Remove default button shadows/effects for cleaner look */
         box-shadow: none !important;
+        transition: none !important; /* Fast response */
     }
 
-    /* Hover effect for empty spots to show where you are aiming */
+    /* Hover effect: Subtle highlight */
     section[data-testid="stMain"]:has(#game_view_marker) .stButton button:not(:disabled):hover {
-        background-color: #dcb35c !important; /* Slightly darker wood */
+        background-color: #dcb35c !important; 
+        /* Add a subtle circle to indicate placement? */
+        border-radius: 50%; /* Only on hover? No, might break layout. Keep square. */
         cursor: pointer;
-        /* Add a ghost stone effect? Optional */
-        opacity: 0.8;
     }
 
-    /* Column Gap Removal */
+    /* Column/Row Gap Removal */
     section[data-testid="stMain"]:has(#game_view_marker) div[data-testid="column"] {
-        width: 40px !important;
-        flex: 0 0 40px !important;
-        min-width: 40px !important;
+        width: 38px !important;
+        flex: 0 0 38px !important;
+        min-width: 38px !important;
         padding: 0 !important;
         gap: 0 !important;
     }
 
-    /* Fix row spacing */
     div[data-testid="stHorizontalBlock"] {
         gap: 0 !important;
     }
     
-    /* Hide the "disabled" opacity reduction to make stones look solid */
+    /* Solid opacity for stones */
     section[data-testid="stMain"]:has(#game_view_marker) .stButton button:disabled {
         opacity: 1 !important;
         background-color: var(--board-color) !important;
