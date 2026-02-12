@@ -156,30 +156,66 @@ def game_page():
         
         st.divider()
         
-        # Turn / Game Status
-        ready_to_play = (room.players[1] is not None) and (room.players[2] is not None)
+        st.divider()
         
-        if my_role == 0:
-            st.info("👀 You are a Spectator")
+        # --- Ready & Game Status ---
+        # Show Ready Status
+        r1 = "✅ Ready" if room.ready_state[1] else "❌ Not Ready"
+        r2 = "✅ Ready" if room.ready_state[2] else "❌ Not Ready"
         
-        if not ready_to_play:
-            st.warning("Waiting for opponent...")
-            # Refresh every 2s while waiting for opponent
-            st_autorefresh(interval=2000, key="wait_player_refresh")
+        col_r1, col_r2 = st.columns(2)
+        with col_r1:
+            st.caption(f"Black: {r1}")
+        with col_r2:
+            st.caption(f"White: {r2}")
+
+        # Ready Button (Only if game not started or over)
+        is_game_started = len(game.history) > 0
+        if my_role in [1, 2] and not game.winner:
+            # If game is in progress (stones placed), hide ready button conceptually, 
+            # but usually we want to stay "Ready" until game ends.
+            # Simple logic: Toggle Ready.
             
+            # If game is running, you are effectively "Playing". 
+            # We only show Ready button if game hasn't started or ended.
+            if not is_game_started:
+                ready_label = "Cancel Ready" if room.ready_state[my_role] else "Ready to Start!"
+                if st.button(ready_label, key="toggle_ready", type="primary" if not room.ready_state[my_role] else "secondary"):
+                    room.toggle_ready(my_role)
+                    st.rerun()
+
+        # Both Ready?
+        players_present = (room.players[1] is not None) and (room.players[2] is not None)
+        both_ready = room.ready_state[1] and room.ready_state[2]
+        
+        ready_to_play = players_present and both_ready
+        
+        if not players_present:
+             st.warning("Waiting for opponent to join...")
+             st_autorefresh(interval=2000, key="wait_join_refresh")
+        elif not both_ready:
+             st.info("Waiting for both players to Ready...")
+             st_autorefresh(interval=2000, key="wait_ready_refresh")
         elif room.game.winner:
             winner_name = room.players[room.game.winner] if room.players[room.game.winner] else "Opponent (Left)"
             st.success(f"🏆 Game Over! Winner: {winner_name}")
+            if st.button("New Game"): 
+                # Resetting requires logic. Usually just 'leave' or simple reset if owner.
+                # For now, swapping or re-joining resets. 
+                # Or we can add a specific Reset button if game over.
+                room.reset_game()
+                st.rerun()
+                
             if room.players[room.game.winner] is None:
                 st.error("The opponent disconnected.")
         else:
+            # Game is ON
             turn_name = room.players[room.game.current_turn]
             color_icon = "⚫" if room.game.current_turn == 1 else "⚪"
             if room.game.current_turn == my_role:
                 st.info(f"{color_icon} YOUR TURN")
             else:
                 st.markdown(f"{color_icon} {turn_name}'s turn")
-                # Refresh every 1s if it's NOT my turn (waiting for opponent move)
                 st_autorefresh(interval=1000, key="wait_move_refresh")
         
         # Also refresh if there is a pending request for ME to handle
@@ -234,8 +270,9 @@ def game_page():
                     room.make_request(st.session_state.nickname, 'UNDO')
                     st.rerun()
             
-            # SWAP Request
-            if st.button("⇄ Swap / Reset", help="Request to swap seats and restart", disabled=not (my_role in [1, 2])):
+            # SWAP Request (Only before game starts)
+            swap_disabled = not (my_role in [1, 2]) or (len(game.history) > 0)
+            if st.button("⇄ Swap Seats", help="Swap seats (Only before start)", disabled=swap_disabled):
                 room.make_request(st.session_state.nickname, 'SWAP')
                 st.rerun()
             

@@ -13,6 +13,15 @@ class Room:
         self.spectators = []
         # request format: {'type': 'UNDO'|'SWAP', 'requester': nickname}
         self.pending_request = None
+        
+        # Ready state: {1: False, 2: False}
+        self.ready_state = {1: False, 2: False}
+
+    def toggle_ready(self, role):
+        if role in [1, 2]:
+            self.ready_state[role] = not self.ready_state[role]
+            return self.ready_state[role]
+        return False
     
     def join(self, player_name):
         # Check if already in the room (Reconnect/Refresh)
@@ -54,11 +63,16 @@ class Room:
     def reset_game(self):
         self.game.reset()
         self.pending_request = None
+        self.ready_state = {1: False, 2: False}
 
     def make_request(self, requester, req_type):
         # req_type: 'UNDO' or 'SWAP'
         if self.pending_request:
             return False, "Another request is pending"
+            
+        # Restriction: SWAP only allowed if game hasn't started (no moves)
+        if req_type == 'SWAP' and len(self.game.history) > 0:
+            return False, "Cannot swap during a game"
             
         # Special Case: Single Player Swap
         if req_type == 'SWAP':
@@ -100,6 +114,7 @@ class Room:
         self.players[1] = p2
         self.players[2] = p1
         self.game.reset() # Reset game on swap usually makes sense
+        self.ready_state = {1: False, 2: False}
 
 
 class GameServer:
